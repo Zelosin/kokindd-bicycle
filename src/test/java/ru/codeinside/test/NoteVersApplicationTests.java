@@ -1,33 +1,55 @@
 package ru.codeinside.test;
 
-import org.junit.jupiter.api.Assertions;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+
+import javax.sql.DataSource;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.context.SpringBootTest;
+import ru.codeinside.test.consts.NoteConsts;
+import ru.codeinside.test.dto.NoteCreateUpdateDto;
+import ru.codeinside.test.service.NoteService;
 
 @SpringBootTest
 class NoteVersApplicationTests {
 
-    @Autowired
-    private NoteRepository noteRepository;
+  private final static String INIT_NOTE_DATA = "Lorem ipsum dolor";
+  private final static String UPDATED_NOTE_DATA = "Lorem ipsum dolor sit amet";
 
-    @Test
-    void contextLoads() {
-    }
+  @Autowired
+  DataSource dataSource;
+  @Autowired
+  private NoteService noteService;
 
-    @Test
-    void saveAndUpdateTest() {
-        var note = Note.builder()
-                .data("Lorem ipsum dolor")
-                .build();
-        noteRepository.save(note);
-        Assertions.assertEquals("Lorem ipsum dolor", noteRepository.findById(note.getId()).map(Note::getData).orElse(null));
-        note.setData("Lorem ipsum dolor sit amet");
-        noteRepository.save(note);
-        Assertions.assertEquals("Lorem ipsum dolor sit amet", noteRepository.findById(note.getId()).map(Note::getData).orElse(null));
+  @Test
+  void contextLoads() {
+  }
 
-        // TODO: Get versions and check it
-    }
+  @Test
+  void saveAndUpdateTest() {
+
+    final var createdNote = noteService.createNote(NoteCreateUpdateDto.builder().data(INIT_NOTE_DATA).build());
+
+    assertEquals(INIT_NOTE_DATA, createdNote.getData());
+    assertEquals(NoteConsts.INIT_VERSION, createdNote.getVersion());
+
+    final var updatedNote = noteService.updateNote(createdNote.getId(), NoteCreateUpdateDto.builder().data(UPDATED_NOTE_DATA).build());
+
+    assertEquals(UPDATED_NOTE_DATA, updatedNote.getData());
+    assertNotEquals(NoteConsts.INIT_VERSION, updatedNote.getVersion());
+    assertNotEquals(createdNote.getVersion(), updatedNote.getVersion());
+    assertNotEquals(createdNote, updatedNote);
+
+    var initVersionFromHistory = noteService.findSpecificVersionForNote(NoteConsts.INIT_VERSION, createdNote.getId());
+
+    assertEquals(createdNote.getId(), initVersionFromHistory.getId());
+    assertEquals(createdNote.getVersion(), initVersionFromHistory.getVersion());
+    assertEquals(createdNote.getData(), initVersionFromHistory.getData());
+
+    assertEquals(createdNote.getId(), initVersionFromHistory.getId());
+    assertNotEquals(updatedNote.getVersion(), initVersionFromHistory.getVersion());
+    assertNotEquals(updatedNote.getData(), initVersionFromHistory.getData());
+  }
 
 }
